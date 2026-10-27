@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>สำรวจฟังก์ชันกำลังสอง 3D | ม.5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a1024;--ink:#e9eefc;--mute:#9aa8cc;--teal:#3ee0c4;--amber:#ffb547;--violet:#8b95ff;--rose:#ff7b8f;--glass:rgba(255,255,255,.07);--line:rgba(255,255,255,.14)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:"IBM Plex Sans Thai",Tahoma,sans-serif;color:var(--ink);background:radial-gradient(1100px 700px at 15% 10%,#1b2a5e 0,transparent 60%),radial-gradient(900px 600px at 90% 90%,#0f4a56 0,transparent 55%),var(--bg);overflow:hidden}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:16px;height:100vh;padding:16px}
+.stage{position:relative;border-radius:24px;overflow:hidden;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01));box-shadow:0 30px 80px rgba(0,0,0,.45)}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#gl:active{cursor:grabbing}
+.glass{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.topbar{position:absolute;left:16px;top:16px;right:16px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start;pointer-events:none}
+.title{padding:12px 18px;border-radius:16px;pointer-events:auto}
+.title small{color:var(--teal);font-weight:600}
+.title h1{margin:2px 0 0;font-size:21px;font-weight:700;line-height:1.25}
+.tools{display:flex;gap:8px;pointer-events:auto}
+.tool{border:1px solid var(--line);background:var(--glass);color:var(--ink);border-radius:12px;padding:9px 13px;font:600 13px inherit;font-family:inherit;cursor:pointer;backdrop-filter:blur(16px);transition:.2s}
+.tool:hover{background:rgba(255,255,255,.16)}
+.tool.on{background:var(--teal);color:#06231e;border-color:var(--teal)}
+.hint{position:absolute;left:16px;bottom:16px;padding:8px 14px;border-radius:12px;font-size:12.5px;color:var(--mute);pointer-events:none}
+.hs{position:absolute;left:0;top:0;transform:translate(-50%,-50%);display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:rgba(10,16,36,.72);color:var(--ink);padding:5px 11px 5px 7px;border-radius:999px;font:600 12.5px "IBM Plex Sans Thai",sans-serif;cursor:pointer;backdrop-filter:blur(8px);white-space:nowrap;transition:background .2s,border-color .2s}
+.hs i{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 0 0 var(--c);animation:pulse 1.8s infinite}
+.hs:hover,.hs.act{background:rgba(255,255,255,.2);border-color:var(--c)}
+.hs[hidden]{display:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 70%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
+.card3d{position:absolute;right:18px;bottom:18px;width:min(340px,calc(100% - 36px));padding:16px 18px;border-radius:18px;border-top:3px solid var(--c,var(--teal));display:none}
+.card3d.show{display:block;animation:pop .45s cubic-bezier(.2,1.3,.4,1)}
+@keyframes pop{from{opacity:0;transform:translateY(18px) scale(.92)}to{opacity:1;transform:none}}
+.card3d h3{margin:0 0 6px;font-size:17px}
+.card3d p{margin:0;font-size:14px;line-height:1.65;color:#d3dcf5}
+.card3d .x{position:absolute;right:10px;top:8px;background:none;border:0;color:var(--mute);font-size:20px;cursor:pointer}
+.card3d .eq{margin-top:9px;padding:7px 10px;border-radius:10px;background:rgba(0,0,0,.28);font-weight:600;color:var(--c,var(--teal));font-size:14px}
+.panel{display:flex;flex-direction:column;min-height:0;border-radius:24px;overflow:hidden}
+.tabs{display:flex;gap:6px;padding:10px;border-bottom:1px solid var(--line)}
+.tab{flex:1;border:0;border-radius:12px;padding:11px 6px;background:transparent;color:var(--mute);font:600 14px "IBM Plex Sans Thai",sans-serif;cursor:pointer;transition:.2s}
+.tab.on{background:linear-gradient(135deg,var(--teal),#2aa8d8);color:#052026}
+.pane{display:none;padding:18px;overflow:auto;flex:1;min-height:0}
+.pane.on{display:block;animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+.pane h2{margin:0 0 4px;font-size:18px}
+.pane>p{margin:0 0 12px;color:var(--mute);font-size:13.5px;line-height:1.6}
+.formula{padding:14px;border-radius:16px;text-align:center;font-size:25px;font-weight:700;background:linear-gradient(135deg,rgba(62,224,196,.16),rgba(139,149,255,.16));border:1px solid var(--line);margin:4px 0 14px;font-family:Georgia,"IBM Plex Sans Thai",serif}
+.ctl{margin:12px 0}
+.ctl label{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:14.5px}
+.ctl label b{min-width:44px;text-align:center;padding:2px 10px;border-radius:9px;background:rgba(255,255,255,.1);color:var(--c)}
+.ctl small{display:block;color:var(--mute);margin-top:3px;font-size:12.5px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:6px;background:rgba(255,255,255,.18);margin:10px 0 2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--c);border:3px solid #0a1024;box-shadow:0 0 0 2px var(--c);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--c);border:3px solid #0a1024;cursor:pointer}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.stat{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid var(--line);font-size:12.5px;color:var(--mute)}
+.stat b{display:block;color:var(--ink);font-size:16px;margin-top:2px}
+.tip{padding:11px 13px;border-radius:12px;background:rgba(255,181,71,.12);border-left:3px solid var(--amber);font-size:13.5px;line-height:1.6}
+table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13.5px}
+td,th{padding:6px;text-align:center;border-bottom:1px solid var(--line)}
+th{color:var(--mute);font-weight:600}
+.btn{border:0;border-radius:12px;padding:10px 16px;font:600 14px "IBM Plex Sans Thai",sans-serif;cursor:pointer;color:#052026;background:linear-gradient(135deg,var(--teal),#2aa8d8);transition:transform .15s,filter .15s}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.btn.ghost{background:rgba(255,255,255,.12);color:var(--ink)}
+.task{padding:14px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid var(--line);margin:12px 0}
+.task>b{color:var(--teal)}
+.task p{margin:6px 0 10px;line-height:1.6;font-size:14.5px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+input[type=text],input[type=number]{width:100%;padding:10px 12px;border-radius:11px;border:1px solid var(--line);background:rgba(0,0,0,.28);color:var(--ink);font:500 15px "IBM Plex Sans Thai",sans-serif;outline:none;margin:4px 0}
+.row input{width:76px}
+input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(62,224,196,.2)}
+.fb{margin-top:10px;padding:9px 12px;border-radius:11px;font-weight:600;font-size:13.5px;display:none}
+.fb.ok{display:block;background:rgba(62,224,196,.15);color:#7dffe6;animation:pop .4s}
+.fb.no{display:block;background:rgba(255,181,71,.15);color:#ffcf85;animation:pop .4s}
+.ans{display:none;margin-top:8px;font-size:13px;color:var(--mute)}
+.score{text-align:center;padding:16px;border-radius:16px;background:linear-gradient(135deg,rgba(62,224,196,.16),rgba(139,149,255,.16));border:1px solid var(--line);margin-top:12px}
+.score strong{font-size:34px;display:block}
+.prog{height:8px;border-radius:8px;background:rgba(255,255,255,.14);overflow:hidden;margin:6px 0 4px}
+.prog span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--violet));transition:width .5s}
+button:focus-visible,.hs:focus-visible,input:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+@media(max-width:980px){body{overflow:auto}.app{grid-template-columns:1fr;grid-template-rows:62vh auto;height:auto;min-height:100vh}.panel{min-height:520px}.title h1{font-size:17px}.hint{display:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.handWrap{position:relative;width:100%;aspect-ratio:16/10;border-radius:16px;overflow:hidden;background:#050a18;border:1px solid var(--line);margin:10px 0}
+#handVideo,#handCanvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#handCanvas{z-index:2}
+.camStatus{position:absolute;left:10px;bottom:10px;z-index:3;padding:6px 10px;border-radius:999px;background:rgba(5,10,24,.72);border:1px solid var(--line);font-size:12px;color:var(--ink);backdrop-filter:blur(8px)}
+.handControls{display:flex;gap:8px;margin:10px 0}.handControls .btn{flex:1}
+.handReadout{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin:10px 0}
+.handStat{padding:9px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--line);font-size:11.5px;color:var(--mute);text-align:center}.handStat b{display:block;color:var(--ink);font-size:15px;margin-top:3px}
+.handEquation{padding:12px;border-radius:14px;text-align:center;font:700 22px Georgia,serif;color:var(--teal);background:linear-gradient(135deg,rgba(62,224,196,.12),rgba(139,149,255,.12));border:1px solid var(--line);margin:10px 0}
+.handScale{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--mute);margin-top:10px}.scaleTrack{position:relative;flex:1;height:6px;border-radius:6px;background:linear-gradient(90deg,var(--violet),var(--teal),var(--amber))}.scaleTrack span{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--teal);transform:translate(-50%,-50%);left:50%;box-shadow:0 0 0 2px rgba(255,255,255,.2)}
+@media(max-width:980px){.handReadout{grid-template-columns:1fr 1fr 1fr}.handWrap{aspect-ratio:4/3}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="stage" id="stage">
+<canvas id="gl"></canvas>
+<div class="topbar">
+<div class="title glass"><small>คณิตศาสตร์ ม.5 · 3D Interactive</small><h1>สำรวจฟังก์ชันกำลังสอง</h1></div>
+<div class="tools"><button class="tool" id="spin">หมุนอัตโนมัติ</button><button class="tool" id="home">รีเซ็ตมุมมอง</button></div>
+</div>
+<div class="hint glass">ลากเพื่อหมุน · คลิกขวาลากเพื่อแพน · เลื่อนลูกกลิ้งเพื่อซูม</div>
+<div id="hotspots"></div>
+<div class="card3d glass" id="card"><button class="x" id="cardX" aria-label="ปิด">×</button><h3 id="cardT"></h3><p id="cardP"></p><div class="eq" id="cardE"></div></div>
+</div>
+
+<aside class="panel glass">
+<div class="tabs" role="tablist">
+<button class="tab on" data-p="p1">ทดลอง</button>
+<button class="tab" data-p="p2">ภารกิจ</button>
+<button class="tab" data-p="p3">แบบประเมิน</button>
+<button class="tab" data-p="p4">🖐️ Magic Hand</button>
+</div>
+
+<div class="pane on" id="p1">
+<h2>ปรับพารามิเตอร์</h2>
+<p>เลื่อนแถบ แล้วดูกราฟในฉาก 3D เปลี่ยนรูปทันที คลิกจุดเรืองแสงบนกราฟเพื่อดูคำอธิบาย</p>
+<div class="formula" id="formula">y = x²</div>
+<div class="ctl" style="--c:var(--teal)"><label>ค่า a <b id="aVal">1</b></label><input id="a" type="range" min="-3" max="3" step=".5" value="1"><small>a ควบคุมทิศทางการเปิดและความกว้างของพาราโบลา</small></div>
+<div class="ctl" style="--c:var(--amber)"><label>ค่า b <b id="bVal">0</b></label><input id="b" type="range" min="-6" max="6" step=".5" value="0"><small>b มีผลต่อตำแหน่งแกนสมมาตร</small></div>
+<div class="ctl" style="--c:var(--violet)"><label>ค่า c <b id="cVal">0</b></label><input id="c" type="range" min="-6" max="6" step="1" value="0"><small>c คือจุดตัดแกน y</small></div>
+<div class="row"><button class="btn ghost" id="reset">รีเซ็ตค่า</button></div>
+<div class="stats">
+<div class="stat">จุดยอด<b id="vertex">—</b></div>
+<div class="stat">แกนสมมาตร<b id="axis">—</b></div>
+<div class="stat">จุดตัดแกน y<b id="yint">—</b></div>
+<div class="stat">ทิศทาง<b id="direction">—</b></div>
+</div>
+<div class="tip" id="tip"></div>
+<table><thead><tr><th>x</th><th>-3</th><th>-2</th><th>-1</th><th>0</th><th>1</th><th>2</th><th>3</th></tr></thead><tbody><tr id="tRow"><th>y</th></tr></tbody></table>
+</div>
+
+<div class="pane" id="p2">
+<h2>ภารกิจ: หาค่า a, b, c</h2>
+<p>อ่านสมการแล้วระบุค่า a, b, c เมื่อตอบถูก กดดูกราฟของสมการนั้นในฉาก 3D ได้ทันที</p>
+<div class="prog"><span id="mProg"></span></div><small id="mTxt" style="color:var(--mute)">ทำสำเร็จ 0 / 3 ภารกิจ</small>
+<div id="missions"></div>
+</div>
+
+<div class="pane" id="p3">
+<h2>แบบประเมินท้ายกิจกรรม</h2>
+<p>ตอบคำถามในช่องว่าง แล้วกดตรวจคำตอบ ระบบจะแสดงผลทันที</p>
+<div class="task"><b>ข้อ 1</b><p>ถ้า a เปลี่ยนจาก 2 เป็น -2 กราฟจะเปลี่ยนจากเปิดขึ้นเป็น ______ และความกว้างของกราฟ ______</p>
+<input type="text" id="e1a" placeholder="เช่น เปิดลง"><input type="text" id="e1b" placeholder="เช่น เท่าเดิม">
+<button class="btn checkEval" data-q="1">ตรวจคำตอบ</button><div class="fb" id="ef1"></div><div class="ans" id="ea1">เฉลย: เปิดลง และเท่าเดิม เพราะ |a| เท่ากัน</div></div>
+<div class="task"><b>ข้อ 2</b><p>ฟังก์ชัน y = 3x² - 6x + 1 มีแกนสมมาตรอยู่ที่ x = ______</p>
+<input type="number" step="any" id="e2" placeholder="กรอกค่าของ x">
+<button class="btn checkEval" data-q="2">ตรวจคำตอบ</button><div class="fb" id="ef2"></div><div class="ans" id="ea2">เฉลย: x = 1 เพราะ x = -b/(2a) = 6/6 = 1</div></div>
+<div class="task"><b>ข้อ 3</b><p>ใน y = ax² + bx + c ค่า c บอกข้อมูลใดของกราฟ?</p>
+<input type="text" id="e3" placeholder="พิมพ์คำตอบ เช่น จุดตัดแกน y">
+<button class="btn checkEval" data-q="3">ตรวจคำตอบ</button><div class="fb" id="ef3"></div><div class="ans" id="ea3">เฉลย: จุดตัดแกน y คือ (0, c)</div></div>
+<div class="score"><span style="color:var(--mute)">คะแนนแบบประเมิน</span><strong><span id="evalScore">0</span> / 3</strong><div id="evalSummary" style="color:var(--mute);font-size:13.5px">ตอบให้ครบทั้ง 3 ข้อ แล้วตรวจคำตอบ</div><div style="margin-top:10px"><button class="btn ghost" id="resetEval">ล้างคำตอบ</button></div></div>
+</div>
+
+<div class="pane" id="p4">
+  <h2>🖐️ Magic Hand</h2>
+  <p>ใช้เว็บแคมควบคุมค่า a, b, c ด้วยมือ แล้วดูกราฟพาราโบลาเปลี่ยนแบบ Real-time</p>
+  <div class="handWrap">
+    <video id="handVideo" autoplay playsinline muted></video>
+    <canvas id="handCanvas"></canvas>
+    <div class="camStatus" id="camStatus">ยังไม่ได้เปิดกล้อง</div>
+  </div>
+  <div class="handControls">
+    <button class="btn" id="startHand">🎥 เปิดกล้อง</button>
+    <button class="btn ghost" id="stopHand">หยุดกล้อง</button>
+  </div>
+  <div class="handReadout">
+    <div class="handStat"><span>นิ้วที่ตรวจพบ</span><b id="fingerCount">—</b></div>
+    <div class="handStat"><span>ตัวแปรที่เลือก</span><b id="handVar">—</b></div>
+    <div class="handStat"><span>ตำแหน่งมือ</span><b id="handPos">—</b></div>
+  </div>
+  <div class="handEquation" id="handEquation">y = x²</div>
+  <div class="tip">
+    <b>วิธีใช้</b><br>
+    ☝️ 1 นิ้ว = เลือก <b>a</b> · ✌️ 2 นิ้ว = เลือก <b>b</b> · 🤟 3 นิ้ว = เลือก <b>c</b><br>
+    จากนั้นเลื่อนมือซ้าย–ขวาเพื่อปรับค่าตัวแปรที่เลือก<br>
+    <span style="color:var(--mute)">หมายเหตุ: หากไม่ต้องการใช้กล้อง สามารถกลับไปใช้ Slider ในแท็บ “ทดลอง” ได้</span>
+  </div>
+  <div class="handScale"><span>ค่าต่ำ</span><div class="scaleTrack"><span id="handScaleDot"></span></div><span>ค่าสูง</span></div>
+</div>
+</aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+function clean(n){return Math.abs(n)<1e-9?0:Number(n.toFixed(2))}
+function fmt(n){return String(clean(n))}
+function equation(a,b,c){
+let s="y = ";
+s+=a===0?"0":(a===1?"x²":a===-1?"-x²":fmt(a)+"x²");
+if(b>0)s+=" + "+(b===1?"x":fmt(b)+"x");else if(b<0)s+=" - "+(Math.abs(b)===1?"x":fmt(Math.abs(b))+"x");
+if(c>0)s+=" + "+fmt(c);else if(c<0)s+=" - "+fmt(Math.abs(c));
+return s;
+}
+
+const T={a:1,b:0,c:0},S={a:1,b:0,c:0};
+const XM=7,YM=10;
+const stage=$("stage"),canvas=$("gl");
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();
+scene.fog=new THREE.Fog(0x0a1024,38,80);
+const camera=new THREE.PerspectiveCamera(42,1,.1,200);
+const HOME=new THREE.Vector3(15,7,27);
+camera.position.copy(HOME);
+const controls=new THREE.OrbitControls(camera,canvas);
+controls.enableDamping=true;controls.dampingFactor=.08;controls.minDistance=8;controls.maxDistance=60;controls.maxPolarAngle=Math.PI*.92;
+controls.autoRotateSpeed=1.4;
+
+scene.add(new THREE.AmbientLight(0x9fb4ff,.55));
+scene.add(new THREE.HemisphereLight(0xbfd8ff,0x14204a,.35));
+const sun=new THREE.DirectionalLight(0xffffff,1.05);
+sun.position.set(8,26,16);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-20,right:20,top:20,bottom:-20,near:1,far:70});
+sun.shadow.bias=-.0004;sun.shadow.radius=4;
+scene.add(sun);
+const rim=new THREE.PointLight(0x3ee0c4,.9,60);rim.position.set(-14,6,12);scene.add(rim);
+const rim2=new THREE.PointLight(0x8b95ff,.7,60);rim2.position.set(14,-4,-10);scene.add(rim2);
+
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(40,30),new THREE.ShadowMaterial({opacity:.38}));
+floor.rotation.x=-Math.PI/2;floor.position.y=-YM-.6;floor.receiveShadow=true;scene.add(floor);
+const floorGlow=new THREE.Mesh(new THREE.PlaneGeometry(40,30),new THREE.MeshBasicMaterial({color:0x1a2a66,transparent:true,opacity:.35}));
+floorGlow.rotation.x=-Math.PI/2;floorGlow.position.y=-YM-.62;scene.add(floorGlow);
+
+function lines(pts,color,op){
+const g=new THREE.BufferGeometry().setFromPoints(pts);
+return new THREE.LineSegments(g,new THREE.LineBasicMaterial({color,transparent:true,opacity:op}));
+}
+const gp=[];
+for(let x=-XM;x<=XM;x++)gp.push(new THREE.Vector3(x,-YM,-.02),new THREE.Vector3(x,YM,-.02));
+for(let y=-YM;y<=YM;y++)gp.push(new THREE.Vector3(-XM,y,-.02),new THREE.Vector3(XM,y,-.02));
+scene.add(lines(gp,0x7f93d6,.22));
+const fp=[];
+for(let x=-20;x<=20;x+=2)fp.push(new THREE.Vector3(x,-YM-.6,-15),new THREE.Vector3(x,-YM-.6,15));
+for(let z=-15;z<=15;z+=2)fp.push(new THREE.Vector3(-20,-YM-.6,z),new THREE.Vector3(20,-YM-.6,z));
+scene.add(lines(fp,0x4a5fb0,.18));
+
+function sprite(txt,color,scale,font){
+const cv=document.createElement("canvas");cv.width=128;cv.height=64;
+const g=cv.getContext("2d");g.font="700 "+(font||38)+"px 'IBM Plex Sans Thai',Tahoma,sans-serif";
+g.textAlign="center";g.textBaseline="middle";g.fillStyle=color;g.fillText(txt,64,34);
+const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false}));
+sp.scale.set(scale*2,scale,1);return sp;
+}
+const axMat=new THREE.MeshStandardMaterial({color:0xdfe7ff,metalness:.4,roughness:.35,emissive:0x223055});
+function axis(len,rot,hx,hy){
+const g=new THREE.Group();
+const cyl=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,len*2,12),axMat);g.add(cyl);
+const cone=new THREE.Mesh(new THREE.ConeGeometry(.2,.6,16),axMat);cone.position.y=len+.2;g.add(cone);
+g.rotation.z=rot;return g;
+}
+scene.add(axis(XM+.8,-Math.PI/2));
+scene.add(axis(YM+.8,0));
+const lx=sprite("x","#ffb547",1.2,44);lx.position.set(XM+1.9,.1,0);scene.add(lx);
+const ly=sprite("y","#3ee0c4",1.2,44);ly.position.set(.1,YM+1.9,0);scene.add(ly);
+for(let x=-XM+1;x<=XM-1;x+=2){if(x){const s=sprite(String(x),"#9aa8cc",.9,34);s.position.set(x,-.75,0);scene.add(s)}}
+for(let y=-YM+2;y<=YM-2;y+=2){if(y){const s=sprite(String(y),"#9aa8cc",.9,34);s.position.set(-.8,y,0);scene.add(s)}}
+
+const curve=new THREE.Group();scene.add(curve);
+const tubeMat=new THREE.MeshStandardMaterial({color:0x3ee0c4,emissive:0x0b5d52,metalness:.35,roughness:.25});
+const ribMat=new THREE.MeshStandardMaterial({color:0x3ee0c4,transparent:true,opacity:.22,side:THREE.DoubleSide,roughness:.4,depthWrite:false});
+
+const vMesh=new THREE.Mesh(new THREE.SphereGeometry(.4,32,32),new THREE.MeshStandardMaterial({color:0xffb547,emissive:0x8a5200,metalness:.3,roughness:.2}));
+vMesh.castShadow=true;scene.add(vMesh);
+const yMesh=new THREE.Mesh(new THREE.SphereGeometry(.32,32,32),new THREE.MeshStandardMaterial({color:0x8b95ff,emissive:0x2a2f8a,metalness:.3,roughness:.2}));
+yMesh.castShadow=true;scene.add(yMesh);
+const axPlane=new THREE.Mesh(new THREE.PlaneGeometry(3.6,YM*2),new THREE.MeshBasicMaterial({color:0xffb547,transparent:true,opacity:.14,side:THREE.DoubleSide,depthWrite:false}));
+axPlane.rotation.y=Math.PI/2;scene.add(axPlane);
+const axLine=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,YM*2,8),new THREE.MeshBasicMaterial({color:0xffb547}));scene.add(axLine);
+
+function disposeGroup(g){
+while(g.children.length){const m=g.children.pop();m.geometry.dispose();}
+}
+function build(a,b,c){
+disposeGroup(curve);
+const runs=[];let run=[];
+for(let i=0;i<=220;i++){
+const x=-XM+2*XM*i/220,y=a*x*x+b*x+c;
+if(y>=-YM&&y<=YM)run.push(new THREE.Vector3(x,y,0));
+else if(run.length){runs.push(run);run=[]}
+}
+if(run.length)runs.push(run);
+runs.forEach(r=>{
+if(r.length<2)return;
+const tube=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(r),r.length*2,.14,10),tubeMat);
+tube.castShadow=true;curve.add(tube);
+const pos=[],idx=[];
+r.forEach((p,i)=>{pos.push(p.x,p.y,-1.6,p.x,p.y,1.6);if(i<r.length-1){const k=i*2;idx.push(k,k+1,k+2,k+1,k+3,k+2)}});
+const g=new THREE.BufferGeometry();
+g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();
+const rib=new THREE.Mesh(g,ribMat);curve.add(rib);
+});
+const q=Math.abs(a)>1e-6;
+const xv=q?-b/(2*a):0,yv=q?a*xv*xv+b*xv+c:0;
+const showV=q&&Math.abs(yv)<=YM&&Math.abs(xv)<=XM;
+vMesh.visible=showV;vMesh.position.set(xv,yv,0);
+axPlane.visible=axLine.visible=q&&Math.abs(xv)<=XM;
+axPlane.position.set(xv,0,0);axLine.position.set(xv,0,0);
+yMesh.position.set(0,Math.max(-YM,Math.min(YM,c)),0);
+}
+
+const HS=[
+{id:"vertex",txt:"จุดยอด",col:"#ffb547",pos:()=>{const q=Math.abs(T.a)>0,xv=-T.b/(2*T.a),yv=T.a*xv*xv+T.b*xv+T.c;return q&&Math.abs(yv)<=YM&&Math.abs(xv)<=XM?new THREE.Vector3(xv,yv+(T.a>0?-1.2:1.2),0):null}},
+{id:"axis",txt:"แกนสมมาตร",col:"#ffd27a",pos:()=>{const xv=-T.b/(2*T.a);return T.a!==0&&Math.abs(xv)<=XM?new THREE.Vector3(xv,YM-.5,0):null}},
+{id:"yint",txt:"(0, c)",col:"#8b95ff",pos:()=>new THREE.Vector3(1.6,Math.max(-YM,Math.min(YM,T.c)),0)},
+{id:"dir",txt:"ค่า a",col:"#3ee0c4",pos:()=>{for(const x of[5.5,-5.5]){const y=T.a*x*x+T.b*x+T.c;if(Math.abs(y)<=YM-.5)return new THREE.Vector3(x,y,0)}return null}}
+];
+const hsBox=$("hotspots");
+HS.forEach(h=>{
+const b=document.createElement("button");b.className="hs";b.style.setProperty("--c",h.col);
+b.innerHTML="<i></i>"+h.txt;b.onclick=()=>showCard(h.id);h.el=b;hsBox.appendChild(b);
+});
+let cur=null;
+function cardData(id){
+const a=T.a,b=T.b,c=T.c,q=a!==0,xv=q?-b/(2*a):0,yv=q?a*xv*xv+b*xv+c:0;
+if(id==="vertex")return{c:"#ffb547",t:"จุดยอด (Vertex)",p:q?"จุดยอดอยู่ที่ ("+fmt(xv)+", "+fmt(yv)+") เป็นจุด"+(a>0?"ต่ำสุด":"สูงสุด")+"ของกราฟ เพราะพาราโบลาเปิด"+(a>0?"ขึ้น":"ลง"):"เมื่อ a = 0 กราฟเป็นเส้นตรง จึงไม่มีจุดยอด",e:"x = -b/(2a) → y = f(x)"};
+if(id==="axis")return{c:"#ffd27a",t:"แกนสมมาตร",p:q?"เส้น x = "+fmt(xv)+" แบ่งกราฟเป็นสองซีกที่เหมือนกันเหมือนภาพสะท้อน ระนาบสีทองในฉาก 3D คือแกนนี้":"เมื่อ a = 0 ไม่มีแกนสมมาตร",e:q?"x = -("+fmt(b)+") / (2·"+fmt(a)+") = "+fmt(xv):"x = -b/(2a)"};
+if(id==="yint")return{c:"#8b95ff",t:"จุดตัดแกน y",p:"เมื่อ x = 0 จะได้ y = c กราฟตัดแกน y ที่จุด (0, "+fmt(c)+") ลองเลื่อน c แล้วดูทรงกลมสีม่วงเคลื่อนขึ้นลง",e:"f(0) = a(0)² + b(0) + c = "+fmt(c)};
+return{c:"#3ee0c4",t:"ทิศทางและความกว้าง",p:q?"a = "+fmt(a)+" ทำให้กราฟเปิด"+(a>0?"ขึ้น":"ลง")+(Math.abs(a)>1?" และแคบลงเพราะ |a| > 1":Math.abs(a)<1?" และกว้างขึ้นเพราะ |a| < 1":" ในรูปแบบมาตรฐาน เพราะ |a| = 1"):"a = 0 สมการไม่ใช่ฟังก์ชันกำลังสอง",e:equation(a,b,c)};
+}
+function showCard(id){
+cur=id;const d=cardData(id),el=$("card");
+el.style.setProperty("--c",d.c);$("cardT").textContent=d.t;$("cardP").textContent=d.p;$("cardE").textContent=d.e;
+el.classList.remove("show");void el.offsetWidth;el.classList.add("show");
+HS.forEach(h=>h.el.classList.toggle("act",h.id===id));
+}
+$("cardX").onclick=()=>{cur=null;$("card").classList.remove("show");HS.forEach(h=>h.el.classList.remove("act"))};
+
+function ui(){
+const a=T.a,b=T.b,c=T.c;
+$("aVal").textContent=fmt(a);$("bVal").textContent=fmt(b);$("cVal").textContent=fmt(c);
+$("formula").textContent=equation(a,b,c);
+if(a!==0){
+const xv=-b/(2*a),yv=a*xv*xv+b*xv+c;
+$("vertex").textContent="("+fmt(xv)+", "+fmt(yv)+")";$("axis").textContent="x = "+fmt(xv);
+$("direction").textContent=a>0?"เปิดขึ้น":"เปิดลง";
+$("tip").textContent=Math.abs(a)>1?"|a| มากกว่า 1 → กราฟแคบลง":Math.abs(a)<1?"|a| น้อยกว่า 1 → กราฟกว้างขึ้น":"|a| = 1 → รูปแบบมาตรฐาน";
+}else{
+$("vertex").textContent="ไม่มี";$("axis").textContent="ไม่มี";$("direction").textContent="เส้นตรง";
+$("tip").textContent="เมื่อ a = 0 สมการไม่ใช่ฟังก์ชันกำลังสอง";
+}
+$("yint").textContent="(0, "+fmt(c)+")";
+const r=$("tRow");r.innerHTML="<th>y</th>";
+[-3,-2,-1,0,1,2,3].forEach(x=>{const td=document.createElement("td");td.textContent=fmt(a*x*x+b*x+c);r.appendChild(td)});
+if(cur)showCard(cur);
+}
+["a","b","c"].forEach(k=>$(k).addEventListener("input",()=>{T[k]=Number($(k).value);ui()}));
+function setAll(a,b,c){
+T.a=a;T.b=b;T.c=c;["a","b","c"].forEach(k=>$(k).value=T[k]);ui();
+}
+$("reset").onclick=()=>setAll(1,0,0);
+
+$("spin").onclick=function(){controls.autoRotate=!controls.autoRotate;this.classList.toggle("on",controls.autoRotate)};
+let homing=false;
+$("home").onclick=()=>{homing=true};
+
+function resize(){
+const w=stage.clientWidth,h=stage.clientHeight;
+renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);resize();
+
+const tmp=new THREE.Vector3();
+function place(){
+const w=stage.clientWidth,h=stage.clientHeight;
+HS.forEach(hs=>{
+const p=hs.pos();
+if(!p){hs.el.hidden=true;return}
+tmp.copy(p).project(camera);
+const vis=tmp.z<1&&Math.abs(tmp.x)<1.05&&Math.abs(tmp.y)<1.05;
+hs.el.hidden=!vis;
+if(vis)hs.el.style.transform="translate("+((tmp.x*.5+.5)*w)+"px,"+((-tmp.y*.5+.5)*h)+"px) translate(-50%,-50%)";
+});
+}
+let first=true,t0=performance.now();
+function loop(now){
+requestAnimationFrame(loop);
+let moved=false;
+["a","b","c"].forEach(k=>{
+const d=T[k]-S[k];
+if(Math.abs(d)>1e-4){S[k]+=d*.16;moved=true}else S[k]=T[k];
+});
+if(moved||first){build(S.a,S.b,S.c);first=false}
+const t=(now-t0)/1000;
+vMesh.scale.setScalar(1+Math.sin(t*3)*.12);
+yMesh.scale.setScalar(1+Math.sin(t*3+1.5)*.1);
+axPlane.material.opacity=.11+Math.sin(t*2)*.03;
+if(homing){camera.position.lerp(HOME,.08);controls.target.lerp(new THREE.Vector3(0,0,0),.08);if(camera.position.distanceTo(HOME)<.05)homing=false}
+controls.update();
+place();
+renderer.render(scene,camera);
+}
+canvas.addEventListener("pointerdown",()=>{homing=false});
+
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===t));
+document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("on",p.id===t.dataset.p));
+});
+
+const M=[
+{t:"ภารกิจที่ 1",f:"y = 2x² + 4x - 3",a:[2,4,-3]},
+{t:"ภารกิจที่ 2",f:"y = -x² + 2x + 3",a:[-1,2,3]},
+{t:"ภารกิจที่ 3",f:"y = -2x² + 4x + 3",a:[-2,4,3]}
+];
+const mDone=[false,false,false];
+const mBox=$("missions");
+M.forEach((m,i)=>{
+const d=document.createElement("div");d.className="task";
+d.innerHTML="<b>"+m.t+"</b><p>จากฟังก์ชัน <b>"+m.f+"</b> จงหาค่า a, b และ c</p><div class='row'><input type='number' step='any' placeholder='a' id='m"+i+"a'><input type='number' step='any' placeholder='b' id='m"+i+"b'><input type='number' step='any' placeholder='c' id='m"+i+"c'><button class='btn' id='mc"+i+"'>ตรวจคำตอบ</button></div><div class='fb' id='mf"+i+"'></div><div class='row' style='margin-top:8px'><button class='btn ghost' id='mv"+i+"' style='display:none'>ดูกราฟนี้ใน 3D</button></div>";
+mBox.appendChild(d);
+$("mc"+i).onclick=()=>{
+const v=["a","b","c"].map(k=>$("m"+i+k).value);
+const ok=v.every((x,j)=>x!==""&&Number(x)===m.a[j]);
+const f=$("mf"+i);
+f.className="fb "+(ok?"ok":"no");
+f.textContent=ok?"✓ ถูกต้อง! a = "+m.a[0]+", b = "+m.a[1]+", c = "+m.a[2]:"ยังไม่ถูก ลองเปรียบเทียบสมการกับรูปแบบ y = ax² + bx + c อีกครั้ง";
+if(ok){mDone[i]=true;$("mv"+i).style.display="inline-block"}
+const n=mDone.filter(Boolean).length;
+$("mProg").style.width=(n/3*100)+"%";$("mTxt").textContent="ทำสำเร็จ "+n+" / 3 ภารกิจ";
+};
+$("mv"+i).onclick=()=>{
+setAll(m.a[0],m.a[1],m.a[2]);
+document.querySelector(".tab[data-p=p1]").click();
+};
+});
+
+let evalScore=0;const evalDone={1:false,2:false,3:false};
+function norm(s){return String(s||"").trim().toLowerCase().replace(/\s+/g,"")}
+document.querySelectorAll(".checkEval").forEach(btn=>btn.addEventListener("click",()=>{
+const q=Number(btn.dataset.q);let ok=false;
+if(q===1){
+const x=norm($("e1a").value),y=norm($("e1b").value);
+ok=(x.includes("เปิดลง")||x==="ลง")&&(y.includes("เท่าเดิม")||y.includes("เท่ากัน"));
+}else if(q===2){
+ok=$("e2").value!==""&&Math.abs(Number($("e2").value)-1)<1e-9;
+}else{
+const x=norm($("e3").value);
+ok=x.includes("จุดตัดแกนy");
+}
+const f=$("ef"+q);
+f.className="fb "+(ok?"ok":"no");
+f.textContent=ok?"✓ ถูกต้อง!":"✗ ยังไม่ถูก ลองทบทวนจากการทดลองในฉาก 3D อีกครั้ง";
+if(ok&&!evalDone[q]){evalDone[q]=true;evalScore++}
+$("evalScore").textContent=evalScore;
+$("evalSummary").textContent=evalScore===3?"🎉 ผ่านแบบประเมินครบทั้ง 3 ข้อแล้ว!":"ทำได้ "+evalScore+" จาก 3 ข้อ";
+$("ea"+q).style.display=ok?"none":"block";
+}));
+$("resetEval").onclick=()=>{
+["e1a","e1b","e2","e3"].forEach(id=>$(id).value="");
+[1,2,3].forEach(q=>{evalDone[q]=false;$("ef"+q).className="fb";$("ef"+q).textContent="";$("ea"+q).style.display="none"});
+evalScore=0;$("evalScore").textContent="0";$("evalSummary").textContent="ตอบให้ครบทั้ง 3 ข้อ แล้วตรวจคำตอบ";
+};
+
+ui();
+requestAnimationFrame(loop);
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script>
+(function(){
+  const video=document.getElementById('handVideo');
+  const canvas=document.getElementById('handCanvas');
+  const ctx=canvas.getContext('2d');
+  const status=document.getElementById('camStatus');
+  const fingerEl=document.getElementById('fingerCount');
+  const varEl=document.getElementById('handVar');
+  const posEl=document.getElementById('handPos');
+  const eqEl=document.getElementById('handEquation');
+  const dot=document.getElementById('handScaleDot');
+  const start=document.getElementById('startHand');
+  const stop=document.getElementById('stopHand');
+  let camera=null,stream=null,running=false,lastApply=0;
+  const ranges={a:{min:-3,max:3,step:.5,label:'a'},b:{min:-6,max:6,step:.5,label:'b'},c:{min:-6,max:6,step:1,label:'c'}};
+  function countFingers(l){
+    let n=0;
+    // สำหรับการเลือก 1/2/3 นิ้ว ใช้นิ้วชี้ กลาง นาง ก้อยเป็นหลัก
+    [[8,6],[12,10],[16,14],[20,18]].forEach(([tip,pip])=>{if(l[tip].y<l[pip].y-.025)n++;});
+    return Math.min(3,n);
+  }
+  function setHandValue(key,x){
+    const r=ranges[key];
+    const raw=r.min+(1-x)*(r.max-r.min); // mirrored canvas -> natural left/right feel
+    const steps=Math.round((raw-r.min)/r.step);
+    const val=Math.max(r.min,Math.min(r.max,r.min+steps*r.step));
+    const a=key==='a'?val:T.a,b=key==='b'?val:T.b,c=key==='c'?val:T.c;
+    setAll(a,b,c);
+    eqEl.textContent=equation(T.a,T.b,T.c);
+    const pct=((val-r.min)/(r.max-r.min))*100;
+    dot.style.left=pct+'%';
+  }
+  function onResults(res){
+    if(!running)return;
+    const w=canvas.clientWidth||640,h=canvas.clientHeight||480;
+    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+    ctx.clearRect(0,0,w,h);
+    if(res.image)ctx.drawImage(res.image,0,0,w,h);
+    if(!res.multiHandLandmarks||!res.multiHandLandmarks.length){
+      status.textContent='กำลังค้นหามือ…';fingerEl.textContent='—';varEl.textContent='—';posEl.textContent='—';return;
+    }
+    const l=res.multiHandLandmarks[0];
+    const n=countFingers(l);
+    const key=n===1?'a':n===2?'b':n===3?'c':null;
+    drawConnectors(ctx,l,Hands.HAND_CONNECTIONS,{color:'#3ee0c4',lineWidth:3});
+    drawLandmarks(ctx,l,{color:'#ffb547',lineWidth:1,radius:4});
+    fingerEl.textContent=n?n+' นิ้ว':'ไม่ระบุ';
+    varEl.textContent=key?key:'พักมือ';
+    const ix=l[8].x;
+    const px=Math.round((1-ix)*100);
+    posEl.textContent=px+'%';
+    status.textContent=key?'กำลังควบคุมค่า '+key:'ยก 1–3 นิ้วเพื่อเลือก a, b หรือ c';
+    if(key && performance.now()-lastApply>90){setHandValue(key,ix);lastApply=performance.now();}
+  }
+  const hands=new Hands({locateFile:(file)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+  hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:.6,minTrackingConfidence:.6});
+  hands.onResults(onResults);
+  async function startCam(){
+    if(running)return;
+    if(!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      running=false;
+      if(location.protocol==='file:'){
+        status.textContent='⚠️ ต้องเปิดผ่าน localhost หรือ HTTPS';
+        alert('ไฟล์ HTML เปิดจากเครื่องโดยตรง (file://) จะไม่สามารถขอสิทธิ์กล้องได้\n\nวิธีใช้: เปิดไฟล์นี้ผ่าน localhost หรือเว็บไซต์ HTTPS เช่น http://localhost:8000');
+      }else{
+        status.textContent='⚠️ เบราว์เซอร์ไม่รองรับการเปิดกล้อง';
+        alert('เบราว์เซอร์ไม่รองรับ Camera API หรือหน้านี้ไม่อยู่ใน Secure Context');
+      }
+      return;
+    }
+    try{
+      status.textContent='กำลังขอสิทธิ์ใช้กล้อง…';
+      stream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:'user'},width:{ideal:1280,max:1920},height:{ideal:720,max:1080},frameRate:{ideal:30,max:30}},
+        audio:false
+      });
+      video.srcObject=stream; video.muted=true; video.setAttribute('playsinline',''); await video.play();
+      running=true; status.textContent='🟢 กล้องทำงานแล้ว — ยกมือหน้ากล้อง';
+      camera=new Camera(video,{onFrame:async()=>{if(running){try{await hands.send({image:video});}catch(err){console.warn('MediaPipe frame error:',err);}}},width:1280,height:720});
+      camera.start();
+    }catch(e){
+      console.error('Camera error:',e); running=false;
+      if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;} video.srcObject=null;
+      let msg='ไม่สามารถเปิดกล้องได้';
+      if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError') msg='🚫 ไม่ได้รับอนุญาตใช้กล้อง — กด Allow/อนุญาต Camera ในเบราว์เซอร์';
+      else if(e.name==='NotFoundError'||e.name==='DevicesNotFoundError') msg='📷 ไม่พบกล้อง — ตรวจสอบว่าเครื่องมีกล้องและไม่ได้ถูกถอดออก';
+      else if(e.name==='NotReadableError'||e.name==='TrackStartError') msg='📷 กล้องถูกใช้งานโดยโปรแกรมอื่น — ปิดโปรแกรมที่ใช้กล้องแล้วลองใหม่';
+      status.textContent=msg;
+      alert(msg+'\n\nหากเปิดไฟล์โดยตรง ให้เปิดผ่าน localhost หรือ HTTPS และกดอนุญาต Camera');
+    }
+  }
+  function stopCam(){
+    running=false;if(camera){try{camera.stop()}catch(e){}camera=null}if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}video.srcObject=null;ctx.clearRect(0,0,canvas.width,canvas.height);status.textContent='หยุดกล้องแล้ว';fingerEl.textContent='—';varEl.textContent='—';posEl.textContent='—';
+  }
+  start.addEventListener('click',startCam);stop.addEventListener('click',stopCam);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)stopCam();});
+})();
+</script>
+</body>
+</html>
